@@ -1,11 +1,15 @@
 const db = require('../config/db');
 const fs = require('fs');
 const path = require('path');
+const { v7: uuidv7 } = require('uuid');
 
 async function seed() {
   const filePath = path.join(__dirname, '../data/profiles.json');
   const raw = fs.readFileSync(filePath, 'utf-8');
-  const profiles = JSON.parse(raw);
+  const parsed = JSON.parse(raw);
+
+  // Handle both { profiles: [...] } and plain [...]
+  const profiles = Array.isArray(parsed) ? parsed : parsed.profiles;
 
   console.log(`Seeding ${profiles.length} profiles...`);
 
@@ -14,12 +18,13 @@ async function seed() {
 
   for (const profile of profiles) {
     try {
+      const id = uuidv7();
       await db.query(
         `INSERT IGNORE INTO profiles 
           (id, name, gender, gender_probability, age, age_group, country_id, country_name, country_probability)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          profile.id,
+          id,
           profile.name,
           profile.gender,
           profile.gender_probability,
