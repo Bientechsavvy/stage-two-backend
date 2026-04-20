@@ -1,5 +1,4 @@
-// Maps plain English queries to structured filters
-// Rule-based only — no AI/LLM used
+// utils/parser.js
 
 const COUNTRY_MAP = {
   nigeria: 'NG',
@@ -43,7 +42,7 @@ const AGE_GROUP_MAP = {
   senior: { age_group: 'senior' },
   seniors: { age_group: 'senior' },
   elderly: { age_group: 'senior' },
-  young: { min_age: 16, max_age: 24 }, // "young" maps to age range only, not a stored group
+  young: { min_age: 16, max_age: 24 },
 };
 
 function parseQuery(q) {
@@ -61,9 +60,8 @@ function parseQuery(q) {
     filters.gender = 'female';
     matched = true;
   }
-  // "male and female" → no gender filter
-[O
-  // Age group keywords
+
+  // Age groups
   for (const [keyword, mapping] of Object.entries(AGE_GROUP_MAP)) {
     if (new RegExp(`\\b${keyword}\\b`).test(lower)) {
       Object.assign(filters, mapping);
@@ -72,21 +70,21 @@ function parseQuery(q) {
     }
   }
 
-  // "above X" / "over X"
+  // above / over
   const aboveMatch = lower.match(/(?:above|over)\s+(\d+)/);
   if (aboveMatch) {
     filters.min_age = parseInt(aboveMatch[1]);
     matched = true;
   }
 
-  // "below X" / "under X"
+  // below / under
   const belowMatch = lower.match(/(?:below|under)\s+(\d+)/);
   if (belowMatch) {
     filters.max_age = parseInt(belowMatch[1]);
     matched = true;
   }
 
-  // "between X and Y"
+  // between X and Y
   const betweenMatch = lower.match(/between\s+(\d+)\s+and\s+(\d+)/);
   if (betweenMatch) {
     filters.min_age = parseInt(betweenMatch[1]);
@@ -94,7 +92,7 @@ function parseQuery(q) {
     matched = true;
   }
 
-  // Country — check multi-word first (e.g., "south africa")
+  // country match
   for (const [country, code] of Object.entries(COUNTRY_MAP)) {
     if (lower.includes(country)) {
       filters.country_id = code;
