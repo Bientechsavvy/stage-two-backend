@@ -18,7 +18,7 @@ app.get('/', (req, res) => {
 });
 
 // ✅ CORRECT route prefix (IMPORTANT FIX)
-app.use('/api', profileRoutes);
+app.use('/api/profiles', profileRoutes);
 
 // ✅ 404 handler (must be last)
 app.use((req, res) => {
