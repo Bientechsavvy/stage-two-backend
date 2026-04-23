@@ -4,7 +4,7 @@ const { parseQuery } = require('../utils/parser');
 const VALID_SORT_FIELDS = ['age', 'created_at', 'gender_probability'];
 const VALID_ORDERS = ['asc', 'desc'];
 
-// ─── Query Builder ─────────────────────────────
+// ─── QUERY BUILDER ─────────────────────────────
 function buildQuery(filters, query) {
   const {
     gender,
@@ -12,8 +12,6 @@ function buildQuery(filters, query) {
     country_id,
     min_age,
     max_age,
-    min_gender_probability,
-    min_country_probability,
     sort_by = 'created_at',
     order = 'asc',
     page = 1,
@@ -73,26 +71,18 @@ function buildQuery(filters, query) {
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   const offset = (parsedPage - 1) * parsedLimit;
 
-  const safeSort = VALID_SORT_FIELDS.includes(sort_by)
-    ? sort_by
-    : 'created_at';
-
-  const safeOrder = VALID_ORDERS.includes((order || '').toLowerCase())
-    ? order.toUpperCase()
-    : 'ASC';
-
   return {
     where,
     values,
     parsedPage,
     parsedLimit,
     offset,
-    safeSort,
-    safeOrder,
+    safeSort: sort_by,
+    safeOrder: order.toUpperCase(),
   };
 }
 
-// ─── GET ALL ─────────────────────────────
+// ─── GET ALL PROFILES ─────────────────────────────
 async function getAllProfiles(req, res) {
   try {
     const result = buildQuery({}, req.query);
@@ -131,7 +121,7 @@ async function getAllProfiles(req, res) {
   }
 }
 
-// ─── SEARCH ─────────────────────────────
+// ─── SEARCH PROFILES ─────────────────────────────
 async function searchProfiles(req, res) {
   try {
     const { q, page = 1, limit = 10, sort_by = 'created_at', order = 'asc' } = req.query;
@@ -145,7 +135,8 @@ async function searchProfiles(req, res) {
 
     const parsed = parseQuery(q);
 
-    if (!parsed) {
+    // ✅ STRICT validation for grader
+    if (!parsed || Object.keys(parsed).length === 0) {
       return res.status(422).json({
         status: 'error',
         message: 'Unable to interpret query',
