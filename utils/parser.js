@@ -53,22 +53,28 @@ function parseQuery(q) {
   let matched = false;
 
   // ✅ Gender (handles singular + plural)
-  if (/\bmale(s)?\b/.test(lower) && !/\bfemale(s)?\b/.test(lower)) {
+  // Gender — check females first to avoid "male" matching inside "female"
+  if (/\bfemales?\b/.test(lower)) {
+    filters.gender = 'female';
+    matched = true;
+  } else if (/\bmales?\b/.test(lower)) {
     filters.gender = 'male';
     matched = true;
   }
 
-  if (/\bfemale(s)?\b/.test(lower)) {
-    filters.gender = 'female';
+  // Age groups — young MUST be checked before other keywords
+  if (/\byoung\b/.test(lower)) {
+    filters.min_age = 16;
+    filters.max_age = 24;
     matched = true;
-  }
-
-  // ✅ Age group / young
-  for (const [keyword, mapping] of Object.entries(AGE_GROUP_MAP)) {
-    if (new RegExp(`\\b${keyword}\\b`).test(lower)) {
-      Object.assign(filters, mapping);
-      matched = true;
-      break;
+  } else {
+    for (const [keyword, mapping] of Object.entries(AGE_GROUP_MAP)) {
+      if (keyword === 'young') continue; // already handled above
+      if (new RegExp(`\\b${keyword}\\b`).test(lower)) {
+        Object.assign(filters, mapping);
+        matched = true;
+        break;
+      }
     }
   }
 
@@ -94,13 +100,23 @@ function parseQuery(q) {
     matched = true;
   }
 
-  // ✅ STRICT "from country"
-  const fromMatch = lower.match(/from\s+([a-z\s']+)/);
+ // Country — check "from X" first, then scan entire query
+  const fromMatch = lower.match(/from\s+([a-z\s']+?)(?:\s+(?:above|below|over|under|between|and|aged?|who|with|where).*)?$/);
   if (fromMatch) {
     const countryName = fromMatch[1].trim();
-
     for (const [country, code] of Object.entries(COUNTRY_MAP)) {
       if (countryName.includes(country)) {
+        filters.country_id = code;
+        matched = true;
+        break;
+      }
+    }
+  }
+
+  // Fallback — scan whole query for country names
+  if (!filters.country_id) {
+    for (const [country, code] of Object.entries(COUNTRY_MAP)) {
+      if (new RegExp(`\\b${country}\\b`).test(lower)) {
         filters.country_id = code;
         matched = true;
         break;
