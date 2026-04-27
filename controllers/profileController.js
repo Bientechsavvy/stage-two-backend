@@ -179,4 +179,34 @@ async function searchProfiles(req, res) {
   }
 }
 
-module.exports = { getAllProfiles, searchProfiles };
+// ─── CSV EXPORT (admin only) ──────────────────
+async function exportCSV(req, res) {
+  try {
+    const [rows] = await db.query('SELECT * FROM profiles');
+
+    const headers = [
+      'id', 'name', 'gender', 'gender_probability',
+      'age', 'age_group', 'country_id', 'country_name',
+      'country_probability', 'created_at'
+    ];
+
+    const csv = [
+      headers.join(','),
+      ...rows.map(row =>
+        headers.map(h => {
+          const val = row[h] ?? '';
+          return `"${String(val).replace(/"/g, '""')}"`;
+        }).join(',')
+      )
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="profiles.csv"');
+    return res.send(csv);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ status: 'error', message: 'Export failed' });
+  }
+}
+
+module.exports = { getAllProfiles, searchProfiles, exportCSV };

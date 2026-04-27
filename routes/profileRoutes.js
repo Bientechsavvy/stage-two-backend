@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { getAllProfiles, searchProfiles } = require('../controllers/profileController');
+const { getAllProfiles, searchProfiles, exportCSV } = require('../controllers/profileController');
+const { authenticate, requireRole } = require('../middleware/auth');
 
-// IMPORTANT: /search must come BEFORE /:id or any wildcard
-router.get('/search', searchProfiles);
-router.get('/', getAllProfiles);
+// All profile routes require authentication
+router.get('/search', authenticate, searchProfiles);
+router.get('/export', authenticate, requireRole('admin'), exportCSV);
+router.get('/', authenticate, getAllProfiles);
 
 module.exports = router;
