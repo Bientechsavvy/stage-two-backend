@@ -108,17 +108,9 @@ async function githubCallback(req, res) {
     });
 
     // Return tokens in response (for CLI)
-    return res.json({
-      status: 'success',
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        avatar_url: user.avatar_url,
-      },
-    });
+    // Redirect to portal with token (for web portal)
+const portalUrl = `${process.env.FRONTEND_URL}?access_token=${accessToken}&refresh_token=${refreshToken}`;
+return res.redirect(portalUrl);
   } catch (err) {
     console.error(err.message);
     return res.status(500).json({ status: 'error', message: 'Authentication failed' });
