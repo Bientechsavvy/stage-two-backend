@@ -108,11 +108,18 @@ async function getAllProfiles(req, res) {
       [...values, parsedLimit, offset]
     );
 
+   const totalPages = Math.ceil(total / parsedLimit);
     return res.status(200).json({
       status: 'success',
       page: parsedPage,
       limit: parsedLimit,
       total,
+      total_pages: totalPages,
+      links: {
+        self: `/api/profiles?page=${parsedPage}&limit=${parsedLimit}`,
+        next: parsedPage < totalPages ? `/api/profiles?page=${parsedPage + 1}&limit=${parsedLimit}` : null,
+        prev: parsedPage > 1 ? `/api/profiles?page=${parsedPage - 1}&limit=${parsedLimit}` : null,
+      },
       data: rows,
     });
   } catch (err) {
