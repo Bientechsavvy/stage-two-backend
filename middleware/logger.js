@@ -4,6 +4,7 @@ async function requestLogger(req, res, next) {
   const start = Date.now();
 
   res.on('finish', async () => {
+    const duration = Date.now() - start;
     try {
       const userId = req.user?.id || null;
       await db.query(
@@ -11,8 +12,9 @@ async function requestLogger(req, res, next) {
          VALUES (?, ?, ?, ?, ?)`,
         [userId, req.method, req.originalUrl, res.statusCode, req.ip]
       );
+      console.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
     } catch (err) {
-      // Silent fail — logging should never break the app
+      // Silent fail
     }
   });
 

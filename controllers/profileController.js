@@ -166,11 +166,21 @@ async function searchProfiles(req, res) {
       [...values, parsedLimit, offset]
     );
 
+    const totalPages = Math.ceil(total / parsedLimit);
+    const baseUrl = `/api/profiles`;
+    const buildLink = (p) => `${baseUrl}?page=${p}&limit=${parsedLimit}`;
+
     return res.status(200).json({
       status: 'success',
       page: parsedPage,
       limit: parsedLimit,
       total,
+      total_pages: totalPages,
+      links: {
+        self: buildLink(parsedPage),
+        next: parsedPage < totalPages ? buildLink(parsedPage + 1) : null,
+        prev: parsedPage > 1 ? buildLink(parsedPage - 1) : null,
+      },
       data: rows,
     });
   } catch (err) {
@@ -209,4 +219,52 @@ async function exportCSV(req, res) {
   }
 }
 
-module.exports = { getAllProfiles, searchProfiles, exportCSV };
+async function createProfile(req, res) {
+  const { name } = req.body;
+  if (!name) {
+    return res.status(400).json({ status: 'error', message: 'Name is required' });
+  }
+
+  try {
+    const axios = require('axios');
+    const { v4: uuidv4 } = require('uuid');
+
+    // Call external APIs (same as Stage 1)
+    const [genderRes, agifyRes, nationalizeRes] = await Promise.all([
+      axios.get(`https://api.genderize.io/?name=${encodeURIComponent(name)}`),
+      axios.get(`https://api.agify.io/?name=${encodeURIComponent(name)}`),
+      axios.get(`https://api.nationalize.io/?name=${encodeURIComponent(name)}`),
+    ]);
+
+    const gender = genderRes.data.gender || 'unknown';
+    const gender_probability = genderRes.data.probability || 0;
+    const age = agifyRes.data.age || 0;
+    const age_group = age <= 12 ? 'child' : age <= 17 ? 'teenager' : age <= 59 ? 'adult' : 'senior';
+    const topCountry = nationalizeRes.data.country?.[0] || {};
+    const country_id = topCountry.country_id || 'UN';
+    const country_probability = topCountry.probability || 0;
+
+    // Get country name
+    let country_name = country_id;
+    try {
+      const countryRes = await axios.get(`https://restcountries.com/v3.1/alpha/${country_id}`);
+      country_name = countryRes.data[0]?.name?.common || country_id;
+    } catch {}
+
+    const id = uuidv4();
+    await db.query(
+      `INSERT INTO profiles (id, name, gender, gender_probability, age, age_group, country_id, country_name, country_probability)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, name, gender, gender_probability, age, age_group, country_id, country_name, country_probability]
+    );
+
+    const [newProfile] = await db.query('SELECT * FROM profiles WHERE id = ?', [id]);
+
+    return res.status(201).json({ status: 'success', data: newProfile[0] });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ status: 'error', message: 'Failed to create profile' });
+  }
+}
+
+module.exports = { getAllProfiles, searchProfiles, exportCSV, createProfile };

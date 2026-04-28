@@ -1,269 +1,104 @@
-# Stage 2 Backend — Intelligence Query Engine
+# Insighta Labs+ — Backend API
 
-## 🧠 Overview
+## System Architecture
+Three-tier system:
+- Backend (Node.js + Express + MySQL) — single source of truth
+- CLI tool — terminal interface
+- Web portal — browser interface
 
-This project is a backend API built for **Insighta Labs**.
-It provides advanced querying over demographic profile data using:
+Both CLI and portal authenticate through the same backend.
 
-* Filtering
-* Sorting
-* Pagination
-* Rule-based natural language search
+## Base URL
+http://35.180.66.115:3000
 
-The system stores and queries **2026 profiles** in a MySQL database.
+## Authentication Flow
+1. User runs `insighta login` (CLI) or clicks "Login with GitHub" (portal)
+2. Backend redirects to GitHub OAuth with PKCE
+3. GitHub redirects back to `/api/v1/auth/github/callback`
+4. Backend exchanges code for GitHub user info
+5. Backend creates or retrieves user from database
+6. Backend issues access token (3 min) + refresh token (5 min)
+7. CLI stores tokens at `~/.insighta/credentials.json`
+8. Portal stores tokens in HTTP-only cookies
 
----
+## Token Handling
+- Access token expires in 3 minutes
+- Refresh token expires in 5 minutes
+- On refresh, old token is immediately invalidated
+- New access + refresh token pair is issued on every refresh
+- Logout deletes refresh token from database
 
-## 🚀 Base URL
+## Role Enforcement
+| Role | Permissions |
+|------|------------|
+| admin | Full access: read, create, delete, export |
+| analyst | Read-only: list, search, export |
 
-http://YOUR_EC2_IP:3000
+- Default role on signup: analyst
+- Roles are checked on every request via middleware
+- Inactive users (is_active = false) get 403 Forbidden
 
----
+## API Versioning
+All profile endpoints require header:
+X-API-Version: 1
+Missing header returns 400 Bad Request.
 
-## ⚙️ Features
+## Endpoints
 
-* Advanced filtering (gender, age, country, probability)
-* Sorting (age, created_at, gender_probability)
-* Pagination (limit up to 50)
-* Natural language query parsing (rule-based only)
-* MySQL database integration
-* UUID v7 IDs
-* Duplicate-safe seeding
-* Global CORS enabled
+### Auth
+GET    /api/v1/auth/github           → Redirect to GitHub
+GET    /api/v1/auth/github/callback  → Handle callback
+POST   /api/v1/auth/refresh          → Refresh tokens
+POST   /api/v1/auth/logout           → Logout
+GET    /api/v1/auth/me               → Get current user
 
----
+### Profiles (require auth + X-API-Version header)
+GET    /api/v1/profiles              → List with filters
+GET    /api/v1/profiles/search       → Natural language search
+GET    /api/v1/profiles/export       → Export CSV
+POST   /api/v1/profiles              → Create profile (admin only)
 
-## 🗄️ Database Schema
+## Rate Limiting
+- Auth endpoints: 10 requests/minute
+- All other endpoints: 60 requests/minute per user
 
-| Field               | Type             | Description                    |
-| ------------------- | ---------------- | ------------------------------ |
-| id                  | UUID v7          | Primary key                    |
-| name                | VARCHAR (UNIQUE) | Full name                      |
-| gender              | VARCHAR          | male / female                  |
-| gender_probability  | FLOAT            | Confidence                     |
-| age                 | INT              | Age                            |
-| age_group           | VARCHAR          | child, teenager, adult, senior |
-| country_id          | VARCHAR(2)       | ISO code                       |
-| country_name        | VARCHAR          | Country name                   |
-| country_probability | FLOAT            | Confidence                     |
-| created_at          | TIMESTAMP        | Auto-generated                 |
+## Natural Language Parsing
+Rule-based keyword matching. No AI or LLMs used.
 
----
+### How it works:
+1. Lowercase the query
+2. Detect gender keywords → gender filter
+3. Detect age group or "young" → age_group or age range
+4. Detect "above/below/between" + number → min_age/max_age
+5. Detect country name after "from" → country_id
+6. If nothing matched → return "Unable to interpret query"
 
-## 🌐 Endpoints
-
-### 1. Get All Profiles
-
-GET /api/profiles
-
-#### Supported Query Parameters
-
-* gender
-* age_group
-* country_id
-* min_age
-* max_age
-* min_gender_probability
-* min_country_probability
-* sort_by → age | created_at | gender_probability
-* order → asc | desc
-* page (default: 1)
-* limit (default: 10, max: 50)
-
----
-
-### 2. Natural Language Search
-
-GET /api/profiles/search?q=<query>
-
-Example:
-
-/api/profiles/search?q=young males from nigeria
-
----
-
-# 🧠 Natural Language Parsing (CORE REQUIREMENT)
-
-The system uses a **rule-based parser** to convert plain English queries into structured filters.
-
-No AI or NLP libraries are used.
-
----
-
-## 🔑 Supported Keywords & Mappings
-
-### Gender
-
-| Input           | Output          |
-| --------------- | --------------- |
-| male, males     | gender = male   |
+### Supported Keywords
+| Keyword | Filter |
+|---------|--------|
+| male, males | gender = male |
 | female, females | gender = female |
-
----
-
-### Age Group
-
-| Input           | Output               |
-| --------------- | -------------------- |
-| child, children | age_group = child    |
-| teenager, teens | age_group = teenager |
-| adult, adults   | age_group = adult    |
-| senior, elderly | age_group = senior   |
-
----
-
-### Special Age Rule
-
-| Input | Output                     |
-| ----- | -------------------------- |
-| young | min_age = 16, max_age = 24 |
-
----
-
-### Numeric Conditions
-
-| Pattern         | Output                   |
-| --------------- | ------------------------ |
-| above X         | min_age = X              |
-| over X          | min_age = X              |
-| below X         | max_age = X              |
-| under X         | max_age = X              |
-| between X and Y | min_age = X, max_age = Y |
-
----
-
-### Country Mapping
-
-Country detection is based on the keyword **"from"**.
-
-| Input        | Output          |
-| ------------ | --------------- |
+| young | min_age=16, max_age=24 |
+| teenager, teen | age_group = teenager |
+| adult | age_group = adult |
+| child | age_group = child |
+| senior, elderly | age_group = senior |
+| above X / over X | min_age = X |
+| below X / under X | max_age = X |
 | from nigeria | country_id = NG |
-| from kenya   | country_id = KE |
-| from ghana   | country_id = GH |
-| from angola  | country_id = AO |
+| from kenya | country_id = KE |
 
----
+### Limitations
+- No NLP — only predefined keywords work
+- Spelling mistakes not handled
+- "young" is not a stored age_group
+- Limited country list (~25 countries)
+- Cannot handle negations ("not from nigeria")
 
-## 📌 Example Queries
-
-### Query:
-
-young males
-
-Result:
-
-* gender = male
-* min_age = 16
-* max_age = 24
-
----
-
-### Query:
-
-females above 30
-
-Result:
-
-* gender = female
-* min_age = 30
-
----
-
-### Query:
-
-adult males from kenya
-
-Result:
-
-* gender = male
-* age_group = adult
-* country_id = KE
-
----
-
-## ❌ Invalid Query Handling
-
-If a query cannot be interpreted:
-
-```json
-{
-  "status": "error",
-  "message": "Unable to interpret query"
-}
-```
-
----
-
-## ⚠️ Limitations (REQUIRED SECTION)
-
-* Rule-based parsing only (no AI or NLP models)
-* Only predefined keywords are supported
-* Queries must follow recognizable patterns (e.g., "from country")
-* No support for typos or misspellings
-* No OR logic (only AND conditions are applied)
-* Limited country mapping
-* Complex sentences may not be interpreted correctly
-
----
-
-## 🌱 Database Seeding
-
-```bash
-node seed/seed.js
-```
-
-* Inserts 2026 profiles
-* Uses duplicate-safe insertion
-
----
-
-## ⚙️ Setup
-
-```bash
-git clone <repo-url>
-cd stage-two-backend
-npm install
-```
-
-Create `.env`:
-
-```
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=yourpassword
-DB_NAME=stage2_db
-PORT=3000
-```
-
-Run:
-
-```bash
-node seed/seed.js
-node server.js
-```
-
----
-
-## 🌍 CORS
-
-Enabled globally:
-
-```
-Access-Control-Allow-Origin: *
-```
-
----
-
-## ⚡ Performance
-
-* Indexed filters
-* Pagination prevents full-table scans
-* Query builder ensures efficient SQL execution
-
----
-
-## 📌 Author
-
-Stage 2 Backend Assessment Submission
-Built for Insighta Labs
+## Tech Stack
+- Node.js + Express
+- MySQL
+- JWT (jsonwebtoken)
+- GitHub OAuth
+- PM2
+- AWS EC2

@@ -1,11 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const { getAllProfiles, searchProfiles, exportCSV } = require('../controllers/profileController');
-const { authenticate, requireRole } = require('../middleware/auth');
+const {
+  getAllProfiles,
+  searchProfiles,
+  exportCSV,
+  createProfile,
+} = require('../controllers/profileController');
+const { authenticate, requireRole, checkApiVersion } = require('../middleware/auth');
 
-// All profile routes require authentication
-router.get('/search', authenticate, searchProfiles);
-router.get('/export', authenticate, requireRole('admin'), exportCSV);
-router.get('/', authenticate, getAllProfiles);
+// All routes require auth + API version header
+router.use(authenticate);
+router.use(checkApiVersion);
+
+router.get('/search', searchProfiles);
+router.get('/export', requireRole('admin', 'analyst'), exportCSV);
+router.get('/', getAllProfiles);
+router.post('/', requireRole('admin'), createProfile);
 
 module.exports = router;

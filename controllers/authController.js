@@ -60,6 +60,8 @@ async function githubCallback(req, res) {
     let user;
     if (existing.length > 0) {
       user = existing[0];
+      // Update last login
+      await db.query('UPDATE users SET last_login_at = NOW() WHERE id = ?', [user.id]);
     } else {
       // Create new user
       const newId = uuidv4();
@@ -86,8 +88,7 @@ async function githubCallback(req, res) {
     );
 
     const refreshToken = uuidv4();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
     await db.query(
       `INSERT INTO refresh_tokens (id, user_id, token, expires_at)
        VALUES (?, ?, ?, ?)`,
@@ -109,8 +110,8 @@ async function githubCallback(req, res) {
 
     // Return tokens in response (for CLI)
     // Redirect to portal with token (for web portal)
-const portalUrl = `${process.env.FRONTEND_URL}?access_token=${accessToken}&refresh_token=${refreshToken}`;
-return res.redirect(portalUrl);
+    const portalUrl = `${process.env.FRONTEND_URL}?access_token=${accessToken}&refresh_token=${refreshToken}`;
+    return res.redirect(portalUrl);
   } catch (err) {
     console.error(err.message);
     return res.status(500).json({ status: 'error', message: 'Authentication failed' });
@@ -137,21 +138,42 @@ async function refreshToken(req, res) {
   const [users] = await db.query('SELECT * FROM users WHERE id = ?', [rows[0].user_id]);
   const user = users[0];
 
-  const accessToken = jwt.sign(
-    { id: user.id, role: user.role, username: user.username },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN }
-  );
+// Invalidate old refresh token
+await db.query('DELETE FROM refresh_tokens WHERE token = ?', [token]);
 
-  res.cookie('access_token', accessToken, {
-    httpOnly: true,
-    secure: false,
-    maxAge: 15 * 60 * 1000,
-  });
+// Issue new tokens
+const accessToken = jwt.sign(
+  { id: user.id, role: user.role, username: user.username },
+  process.env.JWT_SECRET,
+  { expiresIn: process.env.JWT_EXPIRES_IN }
+);
 
-  return res.json({ status: 'success', access_token: accessToken });
+const newRefreshToken = require('uuid').v4();
+const newExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+await db.query(
+  `INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)`,
+  [require('uuid').v4(), user.id, newRefreshToken, newExpiresAt]
+);
+
+res.cookie('access_token', accessToken, {
+  httpOnly: true,
+  secure: false,
+  maxAge: 3 * 60 * 1000,
+});
+
+res.cookie('refresh_token', newRefreshToken, {
+  httpOnly: true,
+  secure: false,
+  maxAge: 5 * 60 * 1000,
+});
+
+return res.json({
+  status: 'success',
+  access_token: accessToken,
+  refresh_token: newRefreshToken,
+});
 }
-
 // ─── STEP 4: Logout ───────────────────────────
 async function logout(req, res) {
   const token = req.body.refresh_token || req.cookies?.refresh_token;
