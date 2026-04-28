@@ -109,9 +109,12 @@ async function githubCallback(req, res) {
     });
 
     // Return tokens in response (for CLI)
-    // Redirect to portal with token (for web portal)
-    const portalUrl = `${process.env.FRONTEND_URL}?access_token=${accessToken}&refresh_token=${refreshToken}`;
-    return res.redirect(portalUrl);
+    const redirectUri = req.query.redirect_uri || req.query.state_redirect;
+if (redirectUri && redirectUri.includes('localhost:9999')) {
+  return res.redirect(`http://localhost:9999/callback?access_token=${accessToken}&refresh_token=${refreshToken}`);
+}
+const portalUrl = `${process.env.FRONTEND_URL}?access_token=${accessToken}&refresh_token=${refreshToken}`;
+return res.redirect(portalUrl);
   } catch (err) {
     console.error(err.message);
     return res.status(500).json({ status: 'error', message: 'Authentication failed' });
