@@ -140,7 +140,11 @@ async function githubCallback(req, res) {
 }
 
 async function refreshToken(req, res) {
-  const token = req.body.refresh_token || req.cookies?.refresh_token;
+  const token = (req.body && req.body.refresh_token) || req.cookies?.refresh_token || null;
+
+if (!token) {
+  return res.status(400).json({ status: 'error', message: 'Refresh token required' });
+}
 
   if (!token) {
     return res.status(400).json({ status: 'error', message: 'Refresh token required' });
@@ -199,8 +203,7 @@ async function refreshToken(req, res) {
 }
 
 async function logout(req, res) {
-  const token = req.body.refresh_token || req.cookies?.refresh_token;
-
+const token = (req.body && req.body.refresh_token) || req.cookies?.refresh_token || null;
   if (token) {
     await db.query('DELETE FROM refresh_tokens WHERE token = ?', [token]);
   }
