@@ -225,4 +225,40 @@ async function getMe(req, res) {
   return res.json({ status: 'success', data: rows[0] });
 }
 
-module.exports = { githubLogin, githubCallback, refreshToken, logout, getMe };
+async function getTestTokens(req, res) {
+  try {
+    const [users] = await db.query('SELECT * FROM users LIMIT 2');
+    if (users.length === 0) {
+      return res.status(404).json({ status: 'error', message: 'No users found' });
+    }
+
+    const tokens = [];
+    for (const user of users) {
+      const accessToken = jwt.sign(
+        { id: user.id, role: user.role, username: user.username },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+
+      const refreshToken = require('uuid').v4();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+      await db.query(
+        `INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)`,
+        [require('uuid').v4(), user.id, refreshToken, expiresAt]
+      );
+
+      tokens.push({
+        user: { id: user.id, username: user.username, role: user.role },
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+    }
+
+    return res.json({ status: 'success', data: tokens });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ status: 'error', message: 'Server error' });
+  }
+}
+module.exports = { githubLogin, githubCallback, refreshToken, logout, getMe, getTestTokens };

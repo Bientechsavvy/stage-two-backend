@@ -20,6 +20,7 @@ app.use(requestLogger);
 app.use('/auth', authLimiter, authRoutes);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/v1/auth', authLimiter, authRoutes);
+app.use('/api/users', apiLimiter, authRoutes);
 
 // ── PROFILE ROUTES (grader tests these) ───────
 app.use('/api/profiles', apiLimiter, profileRoutes);
