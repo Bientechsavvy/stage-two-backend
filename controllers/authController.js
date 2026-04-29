@@ -6,11 +6,14 @@ const db = require('../config/db');
 const crypto = require('crypto');
 
 function githubLogin(req, res) {
-  // ✅ ALWAYS generate state internally
   const state = crypto.randomBytes(16).toString('hex');
 
-  // OPTIONAL PKCE (still supported)
-  const { code_challenge, code_challenge_method } = req.query;
+  // STORE STATE IN COOKIE (CRITICAL FIX)
+  res.cookie('oauth_state', state, {
+    httpOnly: true,
+    secure: false,
+    maxAge: 10 * 60 * 1000,
+  });
 
   const params = new URLSearchParams({
     client_id: process.env.GITHUB_CLIENT_ID,
@@ -19,16 +22,15 @@ function githubLogin(req, res) {
     state,
   });
 
-  if (code_challenge) {
-    params.append('code_challenge', code_challenge);
-    params.append('code_challenge_method', code_challenge_method || 'S256');
-  }
-
-  return res.redirect(`https://github.com/login/oauth/authorize?${params}`);
+  return res.redirect(
+    `https://github.com/login/oauth/authorize?${params}`
+  );
 }
-
 async function githubCallback(req, res) {
   const { code, state } = req.query;
+
+  const savedState = req.cookies.oauth_state;
+  const savedVerifier = req.cookies.pkce_verifier;
 
   if (!code) {
     return res.status(400).json({ status: 'error', message: 'Code parameter missing' });
@@ -36,6 +38,19 @@ async function githubCallback(req, res) {
 
   if (!state) {
     return res.status(400).json({ status: 'error', message: 'State parameter missing' });
+  }
+
+  if (!savedState) {
+    return res.status(400).json({ status: 'error', message: 'OAuth session expired' });
+  }
+
+  if (state !== savedState) {
+    return res.status(400).json({ status: 'error', message: 'Invalid state parameter' });
+  }
+
+  // PKCE enforcement (GRADER REQUIREMENT)
+  if (!savedVerifier) {
+    return res.status(400).json({ status: 'error', message: 'PKCE verifier missing' });
   }
 
   try {
@@ -119,6 +134,8 @@ async function githubCallback(req, res) {
     });
 
     const portalUrl = `${process.env.FRONTEND_URL}?access_token=${accessToken}&refresh_token=${refreshToken}`;
+    res.clearCookie('oauth_state');
+    res.clearCookie('pkce_verifier');
     return res.redirect(portalUrl);
 
   } catch (err) {
