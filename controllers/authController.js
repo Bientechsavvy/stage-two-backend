@@ -3,12 +3,14 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/db');
 
-function githubLogin(req, res) {
-  const { state, code_challenge, code_challenge_method } = req.query;
+const crypto = require('crypto');
 
-  if (!state) {
-    return res.status(400).json({ status: 'error', message: 'state parameter required' });
-  }
+function githubLogin(req, res) {
+  // ✅ ALWAYS generate state internally
+  const state = crypto.randomBytes(16).toString('hex');
+
+  // OPTIONAL PKCE (still supported)
+  const { code_challenge, code_challenge_method } = req.query;
 
   const params = new URLSearchParams({
     client_id: process.env.GITHUB_CLIENT_ID,
