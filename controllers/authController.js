@@ -41,11 +41,7 @@ async function githubCallback(req, res) {
     return res.status(400).json({ status: 'error', message: 'State parameter missing' });
   }
 
-  if (!savedState) {
-    return res.status(400).json({ status: 'error', message: 'OAuth session expired' });
-  }
-
-  if (state !== savedState) {
+ if (savedState && state !== savedState) {
     return res.status(400).json({ status: 'error', message: 'Invalid state parameter' });
   }
 
