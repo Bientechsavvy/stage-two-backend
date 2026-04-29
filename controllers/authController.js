@@ -29,7 +29,7 @@ async function githubCallback(req, res) {
   const { code, state } = req.query;
 
   if (!code) {
-    return res.status(400).json({ status: 'error', message: 'Authorization code missing' });
+    return res.status(400).json({ status: 'error', message: message: 'Code parameter missing' });
   }
 
   if (!state) {
