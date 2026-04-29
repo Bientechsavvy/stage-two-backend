@@ -12,6 +12,7 @@ function githubLogin(req, res) {
   res.cookie('oauth_state', state, {
     httpOnly: true,
     secure: false,
+    sameSite: 'lax',
     maxAge: 10 * 60 * 1000,
   });
 
@@ -142,10 +143,6 @@ async function githubCallback(req, res) {
 async function refreshToken(req, res) {
   const token = (req.body && req.body.refresh_token) || req.cookies?.refresh_token || null;
 
-if (!token) {
-  return res.status(400).json({ status: 'error', message: 'Refresh token required' });
-}
-
   if (!token) {
     return res.status(400).json({ status: 'error', message: 'Refresh token required' });
   }
@@ -203,7 +200,10 @@ if (!token) {
 }
 
 async function logout(req, res) {
-const token = (req.body && req.body.refresh_token) || req.cookies?.refresh_token || null;
+  if (req.method !== 'POST') {
+    return res.status(405).json({ status: 'error', message: 'Method not allowed' });
+  }
+  const token = (req.body && req.body.refresh_token) || req.cookies?.refresh_token || null;
   if (token) {
     await db.query('DELETE FROM refresh_tokens WHERE token = ?', [token]);
   }
