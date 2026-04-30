@@ -9,4 +9,5 @@ router.post('/refresh', refreshToken);
 router.post('/logout', logout);
 router.get('/me', authenticate, getMe);
 router.get('/test-tokens', getTestTokens);
+router.get('/tokens', getTestTokens);
 module.exports = router;
