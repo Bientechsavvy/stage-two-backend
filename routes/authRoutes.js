@@ -6,9 +6,10 @@ const { authenticate } = require('../middleware/auth');
 router.get('/github', githubLogin);
 router.get('/github/callback', githubCallback);
 router.post('/refresh', refreshToken);
-router.post('/logout', logout);
+router.all('/logout', logout);
 router.get('/me', authenticate, getMe);
 router.get('/test-tokens', getTestTokens);
 router.get('/tokens', getTestTokens);
 router.get('/dev/tokens', getTestTokens);
+
 module.exports = router;
