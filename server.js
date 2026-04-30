@@ -40,6 +40,14 @@ app.get('/', (req, res) => {
   res.json({ status: 'success', message: 'Insighta Labs API is running' });
 });
 
+// Token endpoints for testing
+app.get('/api/v1/auth/test-tokens', async (req, res) => {
+  res.redirect('/auth/test-tokens');
+});
+app.get('/api/auth/test-tokens', async (req, res) => {
+  res.redirect('/auth/test-tokens');
+});
+
 // ── 404 ───────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ status: 'error', message: 'Route not found' });
