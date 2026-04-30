@@ -7,48 +7,31 @@ const profileRoutes = require('./routes/profileRoutes');
 const authRoutes = require('./routes/authRoutes');
 const { requestLogger } = require('./middleware/logger');
 const { authLimiter, apiLimiter } = require('./middleware/rateLimiter');
-const { authenticate } = require('./middleware/auth');
 
 const app = express();
 
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Version');
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  next();
-});
+app.use(cors({
+  origin: ['http://35.180.66.115:5173', 'http://localhost:5173'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Version'],
+}));
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(requestLogger);
 
-// ── AUTH ROUTES (grader tests these) ──────────
 app.use('/auth', authLimiter, authRoutes);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/v1/auth', authLimiter, authRoutes);
 app.use('/api/users', apiLimiter, authRoutes);
-
-// ── PROFILE ROUTES (grader tests these) ───────
 app.use('/api/profiles', apiLimiter, profileRoutes);
 app.use('/api/v1/profiles', apiLimiter, profileRoutes);
 
-app.get('/auth/test-tokens', (req, res) => res.redirect('/auth/test-tokens'));
-// ── HEALTH CHECK ──────────────────────────────
 app.get('/', (req, res) => {
   res.json({ status: 'success', message: 'Insighta Labs API is running' });
 });
 
-// Token endpoints for testing
-app.get('/api/v1/auth/test-tokens', async (req, res) => {
-  res.redirect('/auth/test-tokens');
-});
-app.get('/api/auth/test-tokens', async (req, res) => {
-  res.redirect('/auth/test-tokens');
-});
-
-// ── 404 ───────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ status: 'error', message: 'Route not found' });
 });
