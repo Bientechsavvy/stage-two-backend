@@ -34,6 +34,7 @@ app.use('/api/users', apiLimiter, authRoutes);
 app.use('/api/profiles', apiLimiter, profileRoutes);
 app.use('/api/v1/profiles', apiLimiter, profileRoutes);
 
+app.get('/auth/test-tokens', (req, res) => res.redirect('/auth/test-tokens'));
 // ── HEALTH CHECK ──────────────────────────────
 app.get('/', (req, res) => {
   res.json({ status: 'success', message: 'Insighta Labs API is running' });

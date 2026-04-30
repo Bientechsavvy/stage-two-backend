@@ -223,35 +223,57 @@ async function getMe(req, res) {
 
 async function getTestTokens(req, res) {
   try {
-    const [users] = await db.query('SELECT * FROM users LIMIT 2');
+    const [users] = await db.query('SELECT * FROM users');
     if (users.length === 0) {
       return res.status(404).json({ status: 'error', message: 'No users found' });
     }
 
-    const tokens = [];
-    for (const user of users) {
-      const accessToken = jwt.sign(
-        { id: user.id, role: user.role, username: user.username },
-        process.env.JWT_SECRET,
-        { expiresIn: '1h' }
-      );
+    const admin = users.find(u => u.role === 'admin');
+    const analyst = users.find(u => u.role === 'analyst');
 
-      const refreshToken = require('uuid').v4();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-
-      await db.query(
-        `INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)`,
-        [require('uuid').v4(), user.id, refreshToken, expiresAt]
-      );
-
-      tokens.push({
-        user: { id: user.id, username: user.username, role: user.role },
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
+    if (!admin || !analyst) {
+      return res.status(404).json({ status: 'error', message: 'Admin and analyst users not found' });
     }
 
-    return res.json({ status: 'success', data: tokens });
+    const adminToken = jwt.sign(
+      { id: admin.id, role: admin.role, username: admin.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    const analystToken = jwt.sign(
+      { id: analyst.id, role: analyst.role, username: analyst.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    const adminRefresh = uuidv4();
+    const analystRefresh = uuidv4();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    await db.query(
+      `INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)`,
+      [uuidv4(), admin.id, adminRefresh, expiresAt]
+    );
+
+    await db.query(
+      `INSERT INTO refresh_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)`,
+      [uuidv4(), analyst.id, analystRefresh, expiresAt]
+    );
+
+    return res.json({
+      status: 'success',
+      admin: {
+        user: { id: admin.id, username: admin.username, role: 'admin' },
+        access_token: adminToken,
+        refresh_token: adminRefresh,
+      },
+      analyst: {
+        user: { id: analyst.id, username: analyst.username, role: 'analyst' },
+        access_token: analystToken,
+        refresh_token: analystRefresh,
+      },
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ status: 'error', message: 'Server error' });
