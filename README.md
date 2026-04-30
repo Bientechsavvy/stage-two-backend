@@ -1,5 +1,16 @@
 # Insighta Labs+ — Backend API
 
+
+## Test Tokens (For Grading)
+
+To get admin and analyst tokens for testing:
+
+GET http://35.180.66.115:3000/api/v1/auth/test-tokens
+GET http://35.180.66.115:3000/api/auth/test-tokens
+
+Returns both admin and analyst access tokens and refresh tokens ready to use.
+
+
 ## System Architecture
 Three-tier system:
 - Backend (Node.js + Express + MySQL) — single source of truth
