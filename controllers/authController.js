@@ -34,8 +34,7 @@ async function githubCallback(req, res) {
   const savedVerifier = req.cookies.pkce_verifier;
 
   if (!code) {
-    return res.status(400).json({ status: 'error', message: 'Code parameter missing' });
-  }
+return res.status(400).json({ status: 'error', message: 'Authorization code missing' });  }
 
   if (!state) {
     return res.status(400).json({ status: 'error', message: 'State parameter missing' });

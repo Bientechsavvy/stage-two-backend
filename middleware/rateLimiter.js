@@ -5,15 +5,11 @@ const authLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    return req.headers['x-forwarded-for']?.split(',')[0] || 
-           req.socket.remoteAddress || 
-           '127.0.0.1';
-  },
+  keyGenerator: (req) => req.ip,
   handler: (req, res) => {
-    res.status(429).json({ 
-      status: 'error', 
-      message: 'Too many requests, please try again later' 
+    res.status(429).json({
+      status: 'error',
+      message: 'Too many requests, please try again later'
     });
   },
 });
@@ -23,16 +19,11 @@ const apiLimiter = rateLimit({
   max: 60,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    return req.user?.id || 
-           req.headers['x-forwarded-for']?.split(',')[0] || 
-           req.socket.remoteAddress || 
-           '127.0.0.1';
-  },
+  keyGenerator: (req) => req.user?.id || req.ip,
   handler: (req, res) => {
-    res.status(429).json({ 
-      status: 'error', 
-      message: 'Too many requests, please try again later' 
+    res.status(429).json({
+      status: 'error',
+      message: 'Too many requests, please try again later'
     });
   },
 });
