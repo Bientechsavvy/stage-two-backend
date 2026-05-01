@@ -28,7 +28,17 @@ const COUNTRY_MAP = {
   guinea: 'GN',
   mozambique: 'MZ',
   madagascar: 'MG',
+  mozambique: 'MZ',
+  madagascar: 'MG',
+  'burkina faso': 'BF',
+  'burkina-faso': 'BF',
+  burkina: 'BF',
+  somalia: 'SO',
+  'sierra leone': 'SL',
+  liberia: 'LR',
+  gambia: 'GM',
 };
+
 
 const AGE_GROUP_MAP = {
   child: { age_group: 'child' },
@@ -100,7 +110,14 @@ function parseQuery(q) {
     matched = true;
   }
 
- // Country — check "from X" first, then scan entire query
+  const fromToMatch = lower.match(/from\s+(\d+)\s+to\s+(\d+)/);
+  if (fromToMatch) {
+    filters.min_age = parseInt(fromToMatch[1]);
+    filters.max_age = parseInt(fromToMatch[2]);
+    matched = true;
+  }
+
+  // Country — check "from X" first, then scan entire query
   const fromMatch = lower.match(/from\s+([a-z\s']+?)(?:\s+(?:above|below|over|under|between|and|aged?|who|with|where).*)?$/);
   if (fromMatch) {
     const countryName = fromMatch[1].trim();
