@@ -85,8 +85,25 @@ function buildQuery(filters, query) {
 // ─── GET ALL PROFILES ─────────────────────────────
 async function getAllProfiles(req, res) {
   try {
-    const result = buildQuery({}, req.query);
+    const redis = require('../config/redis');
+    const { normalizeFilters } = require('../utils/normalizer');
 
+    const { normalized, cacheKey } = normalizeFilters({
+      ...req.query,
+      _role: req.user?.role,
+    });
+
+    // Check cache first
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        return res.status(200).json(JSON.parse(cached));
+      }
+    } catch (err) {
+      // Cache miss or Redis error — continue to DB
+    }
+
+    const result = buildQuery({}, normalized);
     if (result.error) {
       return res.status(result.error.status).json({
         status: 'error',
@@ -100,7 +117,6 @@ async function getAllProfiles(req, res) {
       `SELECT COUNT(*) AS total FROM profiles ${where}`,
       values
     );
-
     const total = countRows[0].total;
 
     const [rows] = await db.query(
@@ -108,8 +124,8 @@ async function getAllProfiles(req, res) {
       [...values, parsedLimit, offset]
     );
 
-   const totalPages = Math.ceil(total / parsedLimit);
-    return res.status(200).json({
+    const totalPages = Math.ceil(total / parsedLimit);
+    const response = {
       status: 'success',
       page: parsedPage,
       limit: parsedLimit,
@@ -121,12 +137,66 @@ async function getAllProfiles(req, res) {
         prev: parsedPage > 1 ? `/api/profiles?page=${parsedPage - 1}&limit=${parsedLimit}` : null,
       },
       data: rows,
-    });
+    };
+
+    // Store in cache for 5 minutes
+    try {
+      await redis.setex(cacheKey, 300, JSON.stringify(response));
+    } catch (err) {
+      // Silent fail
+    }
+
+    return res.status(200).json(response);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ status: 'error', message: 'Server error' });
   }
 }
+
+// async function getAllProfiles(req, res) {
+//   try {
+//     const result = buildQuery({}, req.query);
+
+//     if (result.error) {
+//       return res.status(result.error.status).json({
+//         status: 'error',
+//         message: result.error.message,
+//       });
+//     }
+
+//     const { where, values, parsedPage, parsedLimit, offset, safeSort, safeOrder } = result;
+
+//     const [countRows] = await db.query(
+//       `SELECT COUNT(*) AS total FROM profiles ${where}`,
+//       values
+//     );
+
+//     const total = countRows[0].total;
+
+//     const [rows] = await db.query(
+//       `SELECT * FROM profiles ${where} ORDER BY ${safeSort} ${safeOrder} LIMIT ? OFFSET ?`,
+//       [...values, parsedLimit, offset]
+//     );
+
+//    const totalPages = Math.ceil(total / parsedLimit);
+//     return res.status(200).json({
+//       status: 'success',
+//       page: parsedPage,
+//       limit: parsedLimit,
+//       total,
+//       total_pages: totalPages,
+//       links: {
+//         self: `/api/profiles?page=${parsedPage}&limit=${parsedLimit}`,
+//         next: parsedPage < totalPages ? `/api/profiles?page=${parsedPage + 1}&limit=${parsedLimit}` : null,
+//         prev: parsedPage > 1 ? `/api/profiles?page=${parsedPage - 1}&limit=${parsedLimit}` : null,
+//       },
+//       data: rows,
+//     });
+//   } catch (err) {
+//     console.error(err);
+//     return res.status(500).json({ status: 'error', message: 'Server error' });
+//   }
+// }
 
 // ─── SEARCH PROFILES ─────────────────────────────
 async function searchProfiles(req, res) {
