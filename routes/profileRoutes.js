@@ -10,11 +10,14 @@ const { authenticate, requireRole, checkApiVersion } = require('../middleware/au
 const upload = require('../middleware/upload');
 const { uploadCSV } = require('../controllers/uploadController');
 // All routes require auth + API version header
-router.post('/upload', requireRole('admin'), upload.single('file'), uploadCSV);
+router.post('/upload', authenticate, requireRole('admin'), upload.single('file'), uploadCSV);
 
-router.get('/search', searchProfiles);
-router.get('/export', requireRole('admin', 'analyst'), exportCSV);
-router.get('/', getAllProfiles);
-router.post('/', requireRole('admin'), createProfile);
+router.get('/search', authenticate, searchProfiles);
+
+router.get('/export', authenticate, requireRole('admin', 'analyst'), exportCSV);
+
+router.get('/', authenticate, getAllProfiles);
+
+router.post('/', authenticate, requireRole('admin'), createProfile);
 
 module.exports = router;
