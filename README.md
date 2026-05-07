@@ -1,12 +1,12 @@
 # Insighta Labs+ — Backend API
 
 
-## Test Tokens (For Grading)
+## Test Tokens
 
 To get admin and analyst tokens for testing:
 
-GET http://35.180.66.115:3000/api/v1/auth/test-tokens
-GET http://35.180.66.115:3000/api/auth/test-tokens
+GET http://35.180.73.174:3000/api/v1/auth/test-tokens
+GET http://35.180.73.174:3000/api/auth/test-tokens
 
 Returns both admin and analyst access tokens and refresh tokens ready to use.
 
@@ -20,7 +20,7 @@ Three-tier system:
 Both CLI and portal authenticate through the same backend.
 
 ## Base URL
-http://35.180.66.115:3000
+http://35.180.73.174:3000
 
 ## Authentication Flow
 1. User runs `insighta login` (CLI) or clicks "Login with GitHub" (portal)
@@ -74,7 +74,7 @@ POST   /api/v1/profiles              → Create profile (admin only)
 - All other endpoints: 60 requests/minute per user
 
 ## Natural Language Parsing
-Rule-based keyword matching. No AI or LLMs used.
+Rule-based keyword matching.
 
 ### How it works:
 1. Lowercase the query
